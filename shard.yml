@@ -1,0 +1,13 @@
+name: feygn
+version: 0.1.0
+
+authors:
+  - Arnaud Fernandés <arnaud.fernandes@tech-magister.com>
+
+crystal: 0.29.0
+
+license: MIT
+
+dependencies:
+  halite:
+    github: icyleaf/halite
