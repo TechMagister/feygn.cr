@@ -1,6 +1,6 @@
 # feygn
 
-[POC] Http Client made easy ?
+[POC] Http Client made easy (and transarent) ?
 
 ## Installation
 
@@ -17,13 +17,53 @@
 ## Usage
 
 ```crystal
+# file: req_res_client.cr
 require "json"
-
 require "feygn"
+
+require "./your_own_data_structures" #sample below
 
 include Feygn::Annotations
 include Feygn
 
+@[FeygnClient(name: "ReqRes", endpoint: "https://reqres.in", logging: true)]
+@[Headers({"User-Agent": "ReqResClient"})]
+class ReqResClient
+  feygn_client
+  
+  def user(id : Int32) : User?
+    user = get_user(id)
+    user.data if user
+  end
+  
+  def users(page) : Array(User)?
+    paged = list_users(page)
+    paged.data if  paged
+  end
+  
+  @[RequestLine("POST /api/users", produces: "application/json")]
+  @[Body("user", type: "json")]
+  @[Headers({"Content-Type": "application/json"})]
+  def create(user : NamedTuple) : UserLight
+    feygn_call
+  end
+  
+  @[RequestLine("GET /api/users", produces: "application/json")]
+  @[QueryParams({"page" => "{page}"})]
+  private def list_users(page) : UserList
+    feygn_call
+  end
+
+  @[RequestLine("GET /api/users/{id}", produces: "application/json")]
+  private def get_user(id : Int32) : UserData
+    feygn_call(parse: true) # set to false or remove produces to get the Halite::Response object
+  end
+  
+end
+```
+
+```crystal
+# file: your_own_data_structures.cr
 class User 
   JSON.mapping(
     id: Int32?,
@@ -35,9 +75,7 @@ class User
 end
 
 class UserData
-  JSON.mapping(
-    user: {key: "data", type: User?}
-  )  
+  JSON.mapping(data: User?)  
 end
 
 class UserList
@@ -50,42 +88,34 @@ class UserList
   )  
 end
 
-@[FeygnClient(name: "ReqRes", url: "https://reqres.in")]
-class ReqResClient
-  feygn_client
-  
-  def user(id : Int32) : User?
-    data = get_user(id)
-    data.user if data
-  end
-  
-  def users(page) : Array(User)?
-    paged = list_users(page)
-    paged.data if paged
-  end
-  
-  @[GetMapping("/api/users?page={page}", produces: "application/json")]
-  private def list_users(page) : UserList
-    feygn_call
-  end
-
-  @[GetMapping("/api/users/{id}", produces: "application/json")]
-  private def get_user(id : Int32) : UserData
-    feygn_call(parse: true) # Setting parse to false will require the following return type : Halite::Response
-  end
-  
-  
+class UserLight
+  JSON.mapping(
+    name: String?,
+    job: String?,
+    id: String?,
+    createdAt: String?
+  )
+  def initialize(@name, @job) end
 end
+```
 
-client = ReqResClient.new
-client.user(2)
-client.users(2)
+```crystal
+# file: main.cr
+test_client = ReqResClient.new
+test_client.user(2)
+test_client.users(page: 1)
+test_client.create({"name": "morpheus", "job": "leader"})
+
+test_client.client # => Halite::Client
+
 ```
 
 ## Development
 
 - [x] POC
-- [ ] Implements all HTTP verbs
+- [x] Implements all HTTP verbs
+- [ ] Add tests (yes, it's still a poc)
+- [ ] Improve the API
 
 ## Contributing
 
